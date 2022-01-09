@@ -199,8 +199,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--gpu',            default='0')
     parser.add_argument('--disp',           action='store_true')
-    parser.add_argument('--task',           default='hanoi')
-    parser.add_argument('--agent',          default='transporter')
+    parser.add_argument('--task',           default='cloth-flat-notarget')
+    parser.add_argument('--agent',          default='transporter-goal')
     parser.add_argument('--num_demos',      default='100')
     parser.add_argument('--num_rots',       default=24, type=int)
     parser.add_argument('--hz',             default=240.0, type=float)
@@ -230,6 +230,9 @@ if __name__ == '__main__':
     dataset = Dataset(os.path.join('data', args.task))
     if args.subsamp_g:
         dataset.subsample_goals = True
+        print('subsample_goals: True')
+    else:
+        print('subsample_goals: False')
 
     # Collect training data from oracle demonstrations.
     max_demos = 10**MAX_ORDER

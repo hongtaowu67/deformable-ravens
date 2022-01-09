@@ -26,12 +26,14 @@ class TransporterAgent:
         self.crop_size = 64
         self.num_rotations = num_rotations
         self.pixel_size = 0.003125
-        self.input_shape = (320, 160, 6)
+        # self.input_shape = (320, 160, 6)
+        self.input_shape = (160, 160, 6)
         self.camera_config = cameras.RealSenseD415.CONFIG
         self.models_dir = os.path.join('checkpoints', self.name)
         #self.models_dir = os.path.join('/raid/seita/defs/checkpoints', self.name)
         #self.models_dir = os.path.join('/data/defs/checkpoints', self.name)
-        self.bounds = np.array([[0.25, 0.75], [-0.5, 0.5], [0, 0.28]])
+        # self.bounds = np.array([[0.25, 0.75], [-0.5, 0.5], [0, 0.28]])
+        self.bounds = np.array([[0.25, 0.75], [-0.25, 0.25], [0, 0.28]])
         self.crop_bef_q = crop_bef_q
         self.use_goal_image = use_goal_image
         self.attn_no_targ = attn_no_targ
@@ -127,6 +129,29 @@ class TransporterAgent:
                 half = int(input_image.shape[2] / 2)
                 img_curr = input_image[:, :, :half]
                 img_goal = input_image[:, :, half:]
+
+                # print(f'img_curr shape: {img_curr.shape}')
+                # print(f'img_goal shape: {img_goal.shape}')
+                # import matplotlib
+                # matplotlib.use('TkAgg')
+                # import matplotlib.pyplot as plt
+                # f, ax = plt.subplots(2, 4)
+                # max_height = 0.14
+                # normalize = matplotlib.colors.Normalize(vmin=0.0, vmax=max_height)
+                # img_curr_copy = np.copy(img_curr)
+                # img_goal_copy = np.copy(img_goal)
+                # img_curr_copy[p0[0], p0[1], :] = 255.0
+                # img_curr_copy[p1[0], p1[1], :] = 255.0
+                # ax[0, 0].imshow(img_curr_copy[:, :, :3] / 255.0)
+                # ax[0, 1].imshow(img_curr_copy[:, :, 3], norm=normalize)
+                # ax[0, 2].imshow(img_curr_copy[:, :, 4], norm=normalize)
+                # ax[0, 3].imshow(img_curr_copy[:, :, 5], norm=normalize)
+                # ax[1, 0].imshow(img_goal[:, :, :3] / 255.0)
+                # ax[1, 1].imshow(img_goal[:, :, 3], norm=normalize)
+                # ax[1, 2].imshow(img_goal[:, :, 4], norm=normalize)
+                # ax[1, 3].imshow(img_goal[:, :, 5], norm=normalize)
+                # plt.show()
+
                 loss1 = self.transport_model.train(img_curr, img_goal, p0, p1, p1_theta)
             else:
                 loss1 = self.transport_model.train(input_image, p0, p1, p1_theta)

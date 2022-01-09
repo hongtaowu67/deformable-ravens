@@ -95,9 +95,12 @@ class DatasetMulti:
         # Only for goal-conditioned Transporters, if we want more goal images.
         self.subsample_goals = False
 
-    def set(self, episodes):
+    def set(self, dataset_idx, episodes):
         """Limit random samples to specific fixed set."""
-        self.episode_set = episodes
+        
+        self.sample_set_list[dataset_idx] = episodes
+        print(f'Dataset: {self.path_list[dataset_idx]}')
+        print(f'Dataset Episode: {self.sample_set_list[dataset_idx]}')
 
     def load(self, dataset_id, episode_id, images=True, cache=False):
         """Load data from a saved episode.
@@ -185,17 +188,26 @@ class DatasetMulti:
             iepisode = np.random.choice(self.sample_set_list[dataset_id])
         else:
             iepisode = np.random.choice(range(self.n_episodes_list[dataset_id]))
+
+        print(f'{self.path_list[dataset_id]} -- {iepisode}')
         
         # Load the episode.
         episode, _ = self.load(dataset_id, iepisode)
         
-        # Pick a step in the episode.
-        i = np.random.choice(range(len(episode)))
+        # Pick a step in the episode that is not random action.
+        while True:
+            i = np.random.choice(range(len(episode)-1))
+            random = episode[i][3]['random']
+            if not random:
+                break
 
         obs = {}
         obs['color'] = episode[i][0]['color']
         obs['depth'] = episode[i][0]['depth']
-        act = episode[i][1]
+        act = {}
+        act['params'] = episode[i][1]
+        act['camera_config'] = CAMERA_CONFIG
+        act['primitive'] = 'pick_place'
         info = episode[i][3]
         assert obs['color'].shape == (3, 480, 640, 3), obs['color'].shape
         assert obs['depth'].shape == (3, 480, 640), obs['depth'].shape
