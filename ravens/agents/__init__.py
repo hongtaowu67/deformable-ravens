@@ -11,6 +11,7 @@ from ravens.agents.regression import PickThenPlaceRegressionAgent
 from ravens.agents.conv_mlp import PickPlaceConvMlpAgent
 from ravens.agents.gt_state import GtStateAgent
 from ravens.agents.gt_state_2_step import GtState2StepAgent
+from ravens.agents.transporter_primitive import GoalTransporterPrimitiveAgent
 
 # Daniel: adding a bunch of transporter-goal agents.
 names = {'dummy':                   DummyAgent,
@@ -23,4 +24,5 @@ names = {'dummy':                   DummyAgent,
          'regression':              PickThenPlaceRegressionAgent,
          'conv_mlp':                PickPlaceConvMlpAgent,
          'gt_state':                GtStateAgent,
-         'gt_state_2_step':         GtState2StepAgent,}
+         'gt_state_2_step':         GtState2StepAgent,
+         'transporter-primitive-goal': GoalTransporterPrimitiveAgent}

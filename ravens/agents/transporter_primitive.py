@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import pybullet as p
 import matplotlib.pyplot as plt
+from sympy import per
 
 from ravens.models import Attention, Transport, TransportGoal
 from ravens import cameras
@@ -15,12 +16,13 @@ from ravens import tasks
 import tensorflow as tf
 
 
-class TransporterAgent:
+class TransporterPrimitiveAgent:
 
-    def __init__(self, name, task, num_rotations=24, crop_bef_q=True,
+    def __init__(self, name, primitive_idx, task, num_rotations=24, crop_bef_q=True,
             use_goal_image=False, attn_no_targ=True):
         """Creates Transporter agent with attention and transport modules."""
         self.name = name
+        self.primitive_idx = primitive_idx
         self.task = task
         self.total_iter = 0
         self.crop_size = 64
@@ -40,6 +42,8 @@ class TransporterAgent:
 
         # TODO(daniel) Hacky. For bag-items-hard, pass in num_rotations since we use it?
         self.real_task = None
+
+        print(f'[TransporterPrimitiveAgent] primitive_idx: {self.primitive_idx}')
 
     def train(self, dataset, num_iter, writer):
         """Train on dataset for a specific number of iterations.
@@ -69,9 +73,20 @@ class TransporterAgent:
         """
         for i in range(num_iter):
             if self.use_goal_image:
-                obs, act, info, goal = dataset.random_sample(goal_images=True)
+                if self.primitive_idx == 0:
+                    add = np.random.choice(range(2))
+                    obs, act, info, goal, permissible_flag = dataset.random_sample(
+                        self.primitive_idx + add, goal_images=True)
+                    assert info['primitive'] == self.primitive_idx + add
+                else:
+                    obs, act, info, goal, permissible_flag = dataset.random_sample(
+                        self.primitive_idx, goal_images=True)
+                    assert info['primitive'] == self.primitive_idx
             else:
-                obs, act, info = dataset.random_sample()
+                raise NotImplementedError
+
+            if self.primitive_idx == 0 or self.primitive_idx == 1:
+                assert not permissible_flag
 
             # Get heightmap from RGB-D images.
             configs = act['camera_config']
@@ -100,9 +115,27 @@ class TransporterAgent:
                 assert input_image.shape[2] == 12, input_image.shape
 
             # Do data augmentation (perturb rotation and translation).
-            original_pixels = (p0, p1)
-            input_image, pixels = utils.perturb(input_image, [p0, p1])
-            p0, p1 = pixels
+            if not permissible_flag:
+                original_pixels = (p0, p1)
+                input_image, pixels = utils.perturb(input_image, [p0, p1])
+                p0, p1 = pixels
+            else:
+                # Training the permissible. Make sure the whole base in the scene.
+                base_size = info['base_size']
+                base_pose = info[info['base_id']]
+                # Base points in base frame.
+                base_pos = [
+                [ 0.025, -0.025, 0.0],
+                [-0.025, -0.025, 0.0],
+                [ 0.025, base_size[1]-0.025, 0.0],
+                [-0.025, base_size[1]-0.025, 0.0]]
+                # Base points in world frame.
+                base_pos_world = [utils.apply(base_pose, i) for i in base_pos]
+                p_base = [utils.position_to_pixel(pos, self.bounds, self.pixel_size) for pos in base_pos_world]
+                
+                input_image, (p0, p1, _, _, _, _) = utils.perturb(
+                    input_image, 
+                    [p0, p1] + p_base)
 
             # Optionally visualize images _after_ data agumentation.
             if False:
@@ -130,7 +163,7 @@ class TransporterAgent:
                 img_curr = input_image[:, :, :half]
                 img_goal = input_image[:, :, half:]
 
-                if True:
+                if False:
                     print(f'img_curr shape: {img_curr.shape}')
                     print(f'img_goal shape: {img_goal.shape}')
                     import matplotlib
@@ -147,10 +180,10 @@ class TransporterAgent:
                     ax[0, 1].imshow(img_curr_copy[:, :, 3], norm=normalize)
                     ax[0, 2].imshow(img_curr_copy[:, :, 4], norm=normalize)
                     ax[0, 3].imshow(img_curr_copy[:, :, 5], norm=normalize)
-                    ax[1, 0].imshow(img_goal[:, :, :3] / 255.0)
-                    ax[1, 1].imshow(img_goal[:, :, 3], norm=normalize)
-                    ax[1, 2].imshow(img_goal[:, :, 4], norm=normalize)
-                    ax[1, 3].imshow(img_goal[:, :, 5], norm=normalize)
+                    ax[1, 0].imshow(img_goal_copy[:, :, :3] / 255.0)
+                    ax[1, 1].imshow(img_goal_copy[:, :, 3], norm=normalize)
+                    ax[1, 2].imshow(img_goal_copy[:, :, 4], norm=normalize)
+                    ax[1, 3].imshow(img_goal_copy[:, :, 5], norm=normalize)
                     plt.show()
 
                 loss1 = self.transport_model.train(img_curr, img_goal, p0, p1, p1_theta)
@@ -435,28 +468,8 @@ class TransporterAgent:
         plt.show()
 
 
-class OriginalTransporterAgent(TransporterAgent):
-    """
-    The official Transporter agent tested in the paper. Added num_rotations and
-    crop_bef_q as arguments. Default arguments are 24 (though this was later
-    turned to 36 for Andy's paper) and to crop to get kernels _before_ the query.
-    """
 
-    def __init__(self, name, task, num_rotations=24, crop_bef_q=True):
-        super().__init__(name, task, num_rotations, crop_bef_q=crop_bef_q)
-
-        self.attention_model = Attention(input_shape=self.input_shape,
-                                         num_rotations=1,
-                                         preprocess=self.preprocess)
-        self.transport_model = Transport(input_shape=self.input_shape,
-                                         num_rotations=self.num_rotations,
-                                         crop_size=self.crop_size,
-                                         preprocess=self.preprocess,
-                                         per_pixel_loss=False,
-                                         crop_bef_q=self.crop_bef_q)
-
-
-class GoalTransporterAgent(TransporterAgent):
+class GoalTransporterPrimitiveAgent(TransporterPrimitiveAgent):
     """
     Goal-conditioned Transporter agent where we pass the goal image through another FCN,
     and then combine the resulting features with the pick and placing networks for better
@@ -464,9 +477,9 @@ class GoalTransporterAgent(TransporterAgent):
     input and target images, so we can directly use `self.input_shape` for both modules.
     """
 
-    def __init__(self, name, task, num_rotations=24):
+    def __init__(self, name, primitive_idx, task, num_rotations=24):
         # (Oct 26) set attn_no_targ=False, and that should be all we need along w/shape ...
-        super().__init__(name, task, num_rotations, use_goal_image=True, attn_no_targ=False)
+        super().__init__(name, primitive_idx, task, num_rotations, use_goal_image=True, attn_no_targ=False)
 
         # (Oct 26) Stack the goal image for the Attention module -- model cannot pick properly otherwise.
         a_shape = (self.input_shape[0], self.input_shape[1], int(self.input_shape[2] * 2))
@@ -478,93 +491,3 @@ class GoalTransporterAgent(TransporterAgent):
                                              num_rotations=self.num_rotations,
                                              crop_size=self.crop_size,
                                              preprocess=self.preprocess)
-
-
-class GoalNaiveTransporterAgent(TransporterAgent):
-    """Same as super naive, except the target image isn't given to the Attention module.
-
-    NOTE: when I trained these before mid-October, we actually did not set a crop_bef_q value,
-    hence we were using the default of True, which matches the CoRL paper but is a little different
-    from the logic of the Transporter-Goal model, hence I'm going to use crop_bef_q=False explicitly.
-    However, this means we can't actually use the models trained in test time unless we also change
-    this setting. It won't throw an error (number of parameters in Transport model is the same) but
-    it means the logic is bad; the filters will be applied on the 'wrong' images.
-    """
-
-    def __init__(self, name, task, num_rotations=24):
-        super().__init__(name, task, num_rotations, use_goal_image=True, attn_no_targ=True)
-
-        # We stack the goal image for the Transport module. (Oct 26: do not use, use SuperNaive instead)
-        t_shape = (self.input_shape[0], self.input_shape[1], int(self.input_shape[2] * 2))
-
-        self.attention_model = Attention(input_shape=self.input_shape,
-                                         num_rotations=1,
-                                         preprocess=self.preprocess)
-        self.transport_model = Transport(input_shape=t_shape,
-                                         num_rotations=self.num_rotations,
-                                         crop_size=self.crop_size,
-                                         preprocess=self.preprocess,
-                                         per_pixel_loss=False,
-                                         crop_bef_q=False,  # NOTE: see docs above.
-                                         use_goal_image=True)
-
-
-class GoalSuperNaiveTransporterAgent(TransporterAgent):
-    """
-    A super naive goal-conditioned Transporter agent, where the image input for
-    both attention and transport is just the current and goal stacked channel-wise.
-
-    NOTE: it would probably be better to set crop_bef_q=False to be closer to what
-    Transporter-Goal does, but I ended up training without initially, and only realized
-    this after the fact, hence keeping crop_bef_q unspecified for now, which means it
-    defaults to the True setting in Transport() class.
-    """
-
-    def __init__(self, name, task, num_rotations=24):
-        super().__init__(name, task, num_rotations, use_goal_image=True, attn_no_targ=False)
-
-        # We stack the goal image for both modules.
-        in_shape = (self.input_shape[0], self.input_shape[1], int(self.input_shape[2] * 2))
-
-        self.attention_model = Attention(input_shape=in_shape,
-                                         num_rotations=1,
-                                         preprocess=self.preprocess)
-        self.transport_model = Transport(input_shape=in_shape,
-                                         num_rotations=self.num_rotations,
-                                         crop_size=self.crop_size,
-                                         preprocess=self.preprocess,
-                                         per_pixel_loss=False,  # NOTE: see docs above.
-                                         use_goal_image=True)
-
-
-class NoTransportTransporterAgent(TransporterAgent):
-    """
-    For this baseline, the transport model is also an attention model, so it
-    does not get a pick-conditioned input. To handle rotations, provide it
-    with num_rotations (while keeping the picking network with one rotation).
-    """
-
-    def __init__(self, name, task):
-        super().__init__(name, task)
-
-        self.attention_model = Attention(input_shape=self.input_shape,
-                                         num_rotations=1,
-                                         preprocess=self.preprocess)
-        self.transport_model = Attention(input_shape=self.input_shape,
-                                         num_rotations=self.num_rotations,
-                                         preprocess=self.preprocess)
-
-
-class PerPixelLossTransporterAgent(TransporterAgent):
-
-    def __init__(self, name, task):
-        super().__init__(name, task)
-
-        self.attention_model = Attention(input_shape=self.input_shape,
-                                         num_rotations=1,
-                                         preprocess=self.preprocess)
-        self.transport_model = Transport(input_shape=self.input_shape,
-                                         num_rotations=self.num_rotations,
-                                         crop_size=self.crop_size,
-                                         preprocess=self.preprocess,
-                                         per_pixel_loss=True)
