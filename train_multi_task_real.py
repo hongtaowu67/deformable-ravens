@@ -43,20 +43,17 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from ravens import Dataset, Environment, agents, tasks
-from ravens.dataset_multi import DatasetMulti
+from ravens.dataset_real import DatasetReal
 
 # Of critical importance! Do 2 for max of 100 demos, 3 for max of 1000 demos.
 MAX_ORDER = 3
 
-data_dir = '/home/hongtao/Dropbox/RavensTAMP/data_transfer'
+data_dir = '/home/hongtao/Dropbox/RavensTAMP/real/train'
 
 task_list = [
-  'stack-tower-mcts',
-  'stack-pyramid-mcts',  
-  'stack-square-mcts',
-  'put-block-base-mcts',
-  'stack-palace-mcts',
-  'stack-t-mcts'
+  'row',
+  'tower',  
+  'square'
 ]
 
 h_only = False
@@ -68,7 +65,7 @@ if __name__ == '__main__':
     parser.add_argument('--disp',           action='store_true')
     parser.add_argument('--task',           default='put-block-base-mcts')
     parser.add_argument('--agent',          default='transporter-goal')
-    parser.add_argument('--num_demos',      default='10')
+    parser.add_argument('--num_demos',      default='1')
     parser.add_argument('--num_rots',       default=36, type=int)
     parser.add_argument('--hz',             default=240.0, type=float)
     parser.add_argument('--gpu_mem_limit',  default=None)
@@ -92,8 +89,8 @@ if __name__ == '__main__':
         cfg.set_virtual_device_configuration(gpus[0], dev_cfg)
 
     # Initialize task. Later, initialize Environment if necessary.
-    dataset_dir_list = [os.path.join(data_dir, f'{task}-pp-train') for task in task_list]
-    dataset = DatasetMulti(dataset_dir_list)
+    dataset_dir_list = [os.path.join(data_dir, f'{task}') for task in task_list]
+    dataset = DatasetReal(dataset_dir_list)
     if args.subsamp_g:
         dataset.subsample_goals = True  
 
@@ -147,5 +144,5 @@ if __name__ == '__main__':
         while agent.total_iter < num_train_iters:
             # Train agent.
             tf.keras.backend.set_learning_phase(1)
-            agent.train(dataset, num_iter=test_interval, writer=train_summary_writer)
+            agent.train(dataset, num_iter=test_interval, writer=train_summary_writer, real=True)
             tf.keras.backend.set_learning_phase(0)

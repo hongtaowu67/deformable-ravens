@@ -18,7 +18,7 @@ import tensorflow as tf
 class TransporterAgent:
 
     def __init__(self, name, task, num_rotations=24, crop_bef_q=True,
-            use_goal_image=False, attn_no_targ=True):
+            use_goal_image=False, attn_no_targ=True, h_only=False):
         """Creates Transporter agent with attention and transport modules."""
         self.name = name
         self.task = task
@@ -27,7 +27,11 @@ class TransporterAgent:
         self.num_rotations = num_rotations
         self.pixel_size = 0.003125
         # self.input_shape = (320, 160, 6)
-        self.input_shape = (160, 160, 6)
+        if not h_only:
+            self.input_shape = (160, 160, 6)
+        else:
+            self.input_shape = (160, 160, 1)
+        print(f"input_shape: {self.input_shape}")
         self.camera_config = cameras.RealSenseD415.CONFIG
         self.models_dir = os.path.join('checkpoints', self.name)
         #self.models_dir = os.path.join('/raid/seita/defs/checkpoints', self.name)
@@ -37,11 +41,12 @@ class TransporterAgent:
         self.crop_bef_q = crop_bef_q
         self.use_goal_image = use_goal_image
         self.attn_no_targ = attn_no_targ
+        self.h_only = h_only
 
         # TODO(daniel) Hacky. For bag-items-hard, pass in num_rotations since we use it?
         self.real_task = None
 
-    def train(self, dataset, num_iter, writer):
+    def train(self, dataset, num_iter, writer, real=False):
         """Train on dataset for a specific number of iterations.
 
         Daniel: notice how little training data we use! One 'iteration' is
@@ -68,36 +73,56 @@ class TransporterAgent:
         those appropriate for the augmented images.
         """
         for i in range(num_iter):
-            if self.use_goal_image:
-                obs, act, info, goal = dataset.random_sample(goal_images=True)
+            if real:
+                colormap, heightmap, act, colormap_g, heightmap_g = dataset.random_sample(goal_images=True)
+                p0 = [int(act['pose0'][1]), int(act['pose0'][0])]
+                p0_theta = act['pose0'][2]
+                p1 = [int(act['pose1'][1]), int(act['pose1'][0])]
+                p1_theta = act['pose1'][2]
+                assert p0_theta == 0.0
+                p1_theta = (p1_theta - p0_theta)
             else:
-                obs, act, info = dataset.random_sample()
+                if self.use_goal_image:
+                    obs, act, info, goal = dataset.random_sample(goal_images=True)
+                else:
+                    obs, act, info = dataset.random_sample()
 
-            # Get heightmap from RGB-D images.
-            configs = act['camera_config']
-            colormap, heightmap = self.get_heightmap(obs, configs)
-            if self.use_goal_image:
-                colormap_g, heightmap_g = self.get_heightmap(goal, configs)
+                # Get heightmap from RGB-D images.
+                configs = act['camera_config']
+                colormap, heightmap = self.get_heightmap(obs, configs)
+                if self.use_goal_image:
+                    colormap_g, heightmap_g = self.get_heightmap(goal, configs)
 
-            # Get training labels from data sample.
-            pose0, pose1 = act['params']['pose0'], act['params']['pose1']
-            p0_position, p0_rotation = pose0[0], pose0[1]
-            p0 = utils.position_to_pixel(p0_position, self.bounds, self.pixel_size)
-            p0_theta = -np.float32(p.getEulerFromQuaternion(p0_rotation)[2])
-            p1_position, p1_rotation = pose1[0], pose1[1]
-            p1 = utils.position_to_pixel(p1_position, self.bounds, self.pixel_size)
-            p1_theta = -np.float32(p.getEulerFromQuaternion(p1_rotation)[2])
-            p1_theta = p1_theta - p0_theta
-            p0_theta = 0
+                # Get training labels from data sample.
+                pose0, pose1 = act['params']['pose0'], act['params']['pose1']
+                p0_position, p0_rotation = pose0[0], pose0[1]
+                p0 = utils.position_to_pixel(p0_position, self.bounds, self.pixel_size)
+                p0_theta = -np.float32(p.getEulerFromQuaternion(p0_rotation)[2])
+                p1_position, p1_rotation = pose1[0], pose1[1]
+                p1 = utils.position_to_pixel(p1_position, self.bounds, self.pixel_size)
+                p1_theta = -np.float32(p.getEulerFromQuaternion(p1_rotation)[2])
+                p1_theta = p1_theta - p0_theta
+                p0_theta = 0
 
             # Concatenate color with depth images.
-            input_image = self.concatenate_c_h(colormap, heightmap)
+            if not self.h_only:
+                input_image = self.concatenate_c_h(colormap, heightmap)
+            else:
+                input_image = heightmap[Ellipsis, None]
 
             # If using goal image, stack _with_ input_image for data augmentation.
             if self.use_goal_image:
-                goal_image = self.concatenate_c_h(colormap_g, heightmap_g)
+                if not self.h_only:
+                    goal_image = self.concatenate_c_h(colormap_g, heightmap_g)
+                else:
+                    goal_image = heightmap_g[Ellipsis, None]
+
                 input_image = np.concatenate((input_image, goal_image), axis=2)
-                assert input_image.shape[2] == 12, input_image.shape
+                
+                if not self.h_only:
+                    assert input_image.shape[2] == 12, input_image.shape
+                else:
+                    assert input_image.shape[2] == 2, input_image.shape
 
             # Do data augmentation (perturb rotation and translation).
             original_pixels = (p0, p1)
@@ -130,28 +155,39 @@ class TransporterAgent:
                 img_curr = input_image[:, :, :half]
                 img_goal = input_image[:, :, half:]
 
-                if True:
-                    print(f'img_curr shape: {img_curr.shape}')
-                    print(f'img_goal shape: {img_goal.shape}')
+                # Debug
+                if False:
                     import matplotlib
                     matplotlib.use('TkAgg')
                     import matplotlib.pyplot as plt
-                    f, ax = plt.subplots(2, 4)
                     max_height = 0.14
                     normalize = matplotlib.colors.Normalize(vmin=0.0, vmax=max_height)
-                    img_curr_copy = np.copy(img_curr)
-                    img_goal_copy = np.copy(img_goal)
-                    img_curr_copy[p0[0], p0[1], :] = 255.0
-                    img_curr_copy[p1[0], p1[1], :] = 255.0
-                    ax[0, 0].imshow(img_curr_copy[:, :, :3] / 255.0)
-                    ax[0, 1].imshow(img_curr_copy[:, :, 3], norm=normalize)
-                    ax[0, 2].imshow(img_curr_copy[:, :, 4], norm=normalize)
-                    ax[0, 3].imshow(img_curr_copy[:, :, 5], norm=normalize)
-                    ax[1, 0].imshow(img_goal[:, :, :3] / 255.0)
-                    ax[1, 1].imshow(img_goal[:, :, 3], norm=normalize)
-                    ax[1, 2].imshow(img_goal[:, :, 4], norm=normalize)
-                    ax[1, 3].imshow(img_goal[:, :, 5], norm=normalize)
-                    plt.show()
+                    print(f'img_curr shape: {img_curr.shape}')
+                    print(f'img_goal shape: {img_goal.shape}')
+                    if self.h_only:
+                        f, ax = plt.subplots(2)
+                        img_curr_copy = np.copy(img_curr)
+                        img_goal_copy = np.copy(img_goal)
+                        img_curr_copy[p0[0], p0[1], :] = 255.0
+                        img_curr_copy[p1[0], p1[1], :] = 255.0
+                        ax[0].imshow(img_curr_copy, norm=normalize)
+                        ax[1].imshow(img_goal_copy, norm=normalize)
+                        plt.show()
+                    else:
+                        f, ax = plt.subplots(2, 4)
+                        img_curr_copy = np.copy(img_curr)
+                        img_goal_copy = np.copy(img_goal)
+                        img_curr_copy[p0[0], p0[1], :] = 255.0
+                        img_curr_copy[p1[0], p1[1], :] = 255.0
+                        ax[0, 0].imshow(img_curr_copy[:, :, :3] / 255.0)
+                        ax[0, 1].imshow(img_curr_copy[:, :, 3], norm=normalize)
+                        ax[0, 2].imshow(img_curr_copy[:, :, 4], norm=normalize)
+                        ax[0, 3].imshow(img_curr_copy[:, :, 5], norm=normalize)
+                        ax[1, 0].imshow(img_goal[:, :, :3] / 255.0)
+                        ax[1, 1].imshow(img_goal[:, :, 3], norm=normalize)
+                        ax[1, 2].imshow(img_goal[:, :, 4], norm=normalize)
+                        ax[1, 3].imshow(img_goal[:, :, 5], norm=normalize)
+                        plt.show()
 
                 loss1 = self.transport_model.train(img_curr, img_goal, p0, p1, p1_theta)
             else:
@@ -464,9 +500,9 @@ class GoalTransporterAgent(TransporterAgent):
     input and target images, so we can directly use `self.input_shape` for both modules.
     """
 
-    def __init__(self, name, task, num_rotations=24):
+    def __init__(self, name, task, num_rotations=24, h_only=False):
         # (Oct 26) set attn_no_targ=False, and that should be all we need along w/shape ...
-        super().__init__(name, task, num_rotations, use_goal_image=True, attn_no_targ=False)
+        super().__init__(name, task, num_rotations, use_goal_image=True, attn_no_targ=False, h_only=h_only)
 
         # (Oct 26) Stack the goal image for the Attention module -- model cannot pick properly otherwise.
         a_shape = (self.input_shape[0], self.input_shape[1], int(self.input_shape[2] * 2))
