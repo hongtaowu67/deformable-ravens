@@ -36,19 +36,16 @@ import datetime
 import os
 import time
 import argparse
-import sys
-import cv2
-import pickle
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
-from ravens import Dataset, Environment, agents, tasks
+from ravens import agents
 from ravens.dataset_real import DatasetReal
 
 # Of critical importance! Do 2 for max of 100 demos, 3 for max of 1000 demos.
 MAX_ORDER = 3
 
-data_dir = '/home/hongtao/Dropbox/RavensTAMP/real/train'
+data_dir = '/home/xin/Dropbox/RavensTAMP/real/train'
 
 task_list = [
   'row',

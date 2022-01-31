@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 from ravens.models import Attention, Transport, TransportGoal
 from ravens import cameras
 from ravens import utils
-from ravens import tasks
 
 import tensorflow as tf
 

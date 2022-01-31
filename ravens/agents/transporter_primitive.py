@@ -6,12 +6,10 @@ import cv2
 import numpy as np
 import pybullet as p
 import matplotlib.pyplot as plt
-from sympy import per
 
-from ravens.models import Attention, Transport, TransportGoal
+from ravens.models import Attention, TransportGoal
 from ravens import cameras
 from ravens import utils
-from ravens import tasks
 
 import tensorflow as tf
 
