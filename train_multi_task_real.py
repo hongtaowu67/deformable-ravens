@@ -65,7 +65,7 @@ if __name__ == '__main__':
     parser.add_argument('--disp',           action='store_true')
     parser.add_argument('--task',           default='put-block-base-mcts')
     parser.add_argument('--agent',          default='transporter-goal')
-    parser.add_argument('--num_demos',      default='1')
+    parser.add_argument('--num_demos',      default='10')
     parser.add_argument('--num_rots',       default=36, type=int)
     parser.add_argument('--hz',             default=240.0, type=float)
     parser.add_argument('--gpu_mem_limit',  default=None)
@@ -111,7 +111,7 @@ if __name__ == '__main__':
         train_summary_writer = tf.summary.create_file_writer(train_log_dir)
 
         # Set the beginning of the agent name.
-        name = f'GCTN-Multi-{args.agent}-{args.num_demos}-{train_run}-transfer'
+        name = f'GCTN-Multi-{args.agent}-{args.num_demos}-{train_run}-real'
 
         # Initialize agent and limit random dataset sampling to fixed set.
         tf.random.set_seed(train_run)

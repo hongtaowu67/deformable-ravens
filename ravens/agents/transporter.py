@@ -46,6 +46,19 @@ class TransporterAgent:
         # TODO(daniel) Hacky. For bag-items-hard, pass in num_rotations since we use it?
         self.real_task = None
 
+    @staticmethod
+    def denoise(cmap, hmap):
+        hmap_temp = np.copy(hmap)
+        hmap_means = np.mean(hmap_temp)
+        hmap_temp = hmap_temp * (hmap_temp > 1.2 * hmap_means)
+
+        cmap_temp = np.copy(cmap)
+        for i in range(3):
+            cmap_temp[:, :, i] = cmap_temp[:, :, i] * (hmap_temp > 1e-4)
+        
+        return cmap_temp, hmap
+
+
     def train(self, dataset, num_iter, writer, real=False):
         """Train on dataset for a specific number of iterations.
 
@@ -75,6 +88,8 @@ class TransporterAgent:
         for i in range(num_iter):
             if real:
                 colormap, heightmap, act, colormap_g, heightmap_g = dataset.random_sample(goal_images=True)
+                colormap, heightmap = TransporterAgent.denoise(colormap, heightmap)
+                colormap_g, heightmap_g = TransporterAgent.denoise(colormap_g, heightmap_g)
                 p0 = [int(act['pose0'][1]), int(act['pose0'][0])]
                 p0_theta = act['pose0'][2]
                 p1 = [int(act['pose1'][1]), int(act['pose1'][0])]
