@@ -36,13 +36,10 @@ import datetime
 import os
 import time
 import argparse
-import sys
-import cv2
-import pickle
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
-from ravens import Dataset, Environment, agents, tasks
+from ravens import agents
 from ravens.dataset_real import DatasetReal
 
 # Of critical importance! Do 2 for max of 100 demos, 3 for max of 1000 demos.
@@ -65,7 +62,7 @@ if __name__ == '__main__':
     parser.add_argument('--disp',           action='store_true')
     parser.add_argument('--task',           default='put-block-base-mcts')
     parser.add_argument('--agent',          default='transporter-goal')
-    parser.add_argument('--num_demos',      default='10')
+    parser.add_argument('--num_demos',      default='4')
     parser.add_argument('--num_rots',       default=36, type=int)
     parser.add_argument('--hz',             default=240.0, type=float)
     parser.add_argument('--gpu_mem_limit',  default=None)

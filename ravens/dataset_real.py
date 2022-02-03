@@ -1,15 +1,10 @@
 #!/usr/bin/env python
 import os
-import sys
-import json
-import argparse
 import cv2
-import pickle
 import numpy as np
 from ravens import utils as U
 from ravens import tasks, cameras
-from collections import defaultdict
-import tensorflow as tf
+
 
 # See transporter.py, regression.py, dummy.py, task.py, load.py, etc.
 PIXEL_SIZE = 0.003125
@@ -132,8 +127,7 @@ class DatasetReal:
                     lines = f.readlines()
                 pick_action = [float(i) for i in lines[0].split()]
                 place_action = [float(i) for i in lines[1].split()]
-                # random = float(lines[2][0])
-                random = 0
+                random = float(lines[2][0])
                 assert pick_action[2] == 0.0
                 action = {}
                 action['pose0'] = pick_action
@@ -194,6 +188,7 @@ class DatasetReal:
         cmap = episode[i][0]
         hmap = episode[i][1]
         act  = episode[i][2]
+        assert not random
 
         if goal_images:
             cmap_g = episode[-1][0]

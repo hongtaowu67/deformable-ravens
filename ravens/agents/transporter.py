@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 from ravens.models import Attention, Transport, TransportGoal
 from ravens import cameras
 from ravens import utils
-from ravens import tasks
 
 import tensorflow as tf
 
@@ -194,6 +193,7 @@ class TransporterAgent:
                         img_goal_copy = np.copy(img_goal)
                         img_curr_copy[p0[0], p0[1], :] = 255.0
                         img_curr_copy[p1[0], p1[1], :] = 255.0
+                        print(f'p1_theta: {p1_theta / np.pi * 180}')
                         ax[0, 0].imshow(img_curr_copy[:, :, :3] / 255.0)
                         ax[0, 1].imshow(img_curr_copy[:, :, 3], norm=normalize)
                         ax[0, 2].imshow(img_curr_copy[:, :, 4], norm=normalize)
