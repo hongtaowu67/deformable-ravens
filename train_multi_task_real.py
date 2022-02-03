@@ -62,7 +62,7 @@ if __name__ == '__main__':
     parser.add_argument('--disp',           action='store_true')
     parser.add_argument('--task',           default='put-block-base-mcts')
     parser.add_argument('--agent',          default='transporter-goal')
-    parser.add_argument('--num_demos',      default='10')
+    parser.add_argument('--num_demos',      default='4')
     parser.add_argument('--num_rots',       default=36, type=int)
     parser.add_argument('--hz',             default=240.0, type=float)
     parser.add_argument('--gpu_mem_limit',  default=None)

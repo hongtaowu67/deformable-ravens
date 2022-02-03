@@ -187,6 +187,7 @@ class DatasetReal:
         cmap = episode[i][0]
         hmap = episode[i][1]
         act  = episode[i][2]
+        assert not random
 
         if goal_images:
             cmap_g = episode[-1][0]
