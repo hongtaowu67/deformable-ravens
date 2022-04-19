@@ -171,8 +171,6 @@ class DatasetReal:
             iepisode = np.random.choice(self.sample_set_list[dataset_id])
         else:
             iepisode = np.random.choice(range(self.n_episodes_list[dataset_id]))
-
-        print(f'{self.path_list[dataset_id]} -- {iepisode}')
         
         # Load the episode.
         episode = self.load(dataset_id, iepisode)
@@ -183,6 +181,8 @@ class DatasetReal:
             random = episode[i][2]['random']
             if not random:
                 break
+
+        print(f'{self.path_list[dataset_id]} -- {iepisode} -- {i}')
     
         cmap = episode[i][0]
         hmap = episode[i][1]

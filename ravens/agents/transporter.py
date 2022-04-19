@@ -5,6 +5,7 @@ import os
 import cv2
 import numpy as np
 import pybullet as p
+import matplotlib
 import matplotlib.pyplot as plt
 
 from ravens.models import Attention, Transport, TransportGoal
@@ -52,11 +53,13 @@ class TransporterAgent:
         hmap_temp = hmap_temp * (hmap_temp > 1.2 * hmap_means)
 
         cmap_temp = np.copy(cmap)
+        cmap_normalize = np.copy(cmap_temp) / 255.0
+        cmap_hsv = matplotlib.colors.rgb_to_hsv(cmap_normalize)
         for i in range(3):
-            cmap_temp[:, :, i] = cmap_temp[:, :, i] * (hmap_temp > 1e-4)
-        
-        return cmap_temp, hmap
+            cmap_temp[:, :, i] = cmap_temp[:, :, i] * (hmap_temp > 1e-4) * (cmap_hsv[:, :, 2] > 0.3)
+            hmap_temp = hmap_temp * (cmap_hsv[:, :, 2] > 0.3)
 
+        return cmap_temp, hmap_temp
 
     def train(self, dataset, num_iter, writer, real=False):
         """Train on dataset for a specific number of iterations.
