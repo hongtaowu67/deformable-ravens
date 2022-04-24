@@ -48,7 +48,7 @@ from ravens.dataset_multi import DatasetMulti
 # Of critical importance! Do 2 for max of 100 demos, 3 for max of 1000 demos.
 MAX_ORDER = 3
 
-data_dir = '/home/hongtao/Dropbox/RavensTAMP/data_transfer'
+data_dir = '/home/xin/Dropbox/RavensTAMP/data_train'
 
 task_list = [
   'stack-tower-mcts',
@@ -114,7 +114,7 @@ if __name__ == '__main__':
         train_summary_writer = tf.summary.create_file_writer(train_log_dir)
 
         # Set the beginning of the agent name.
-        name = f'GCTN-Multi-{args.agent}-{args.num_demos}-{train_run}-transfer'
+        name = f'GCTN-Multi-{args.agent}-{args.num_demos}-{train_run}-third-check'
 
         # Initialize agent and limit random dataset sampling to fixed set.
         tf.random.set_seed(train_run)
