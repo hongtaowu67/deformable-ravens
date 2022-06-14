@@ -200,7 +200,9 @@ class DatasetMulti:
             random = episode[i][3]['random']
             if not random:
                 break
-
+        
+        assert not episode[i][3]['random']
+        assert i < (len(episode) - 1)
         obs = {}
         obs['color'] = episode[i][0]['color']
         obs['depth'] = episode[i][0]['depth']
@@ -213,6 +215,7 @@ class DatasetMulti:
         assert obs['depth'].shape == (3, 480, 640), obs['depth'].shape
 
         # Load goal images. Must be in the SAME episode! We might not pick final images.
+        assert goal_images
         if goal_images:
             ep_len = len(episode)
             assert i < ep_len, f'{i} vs {ep_len}'
@@ -226,6 +229,7 @@ class DatasetMulti:
             else:
                 new_i = ep_len
 
+            assert new_i == ep_len
             if new_i < ep_len:
                 # Load a list and index in it by `new_i`.
                 goal['color'] = episode[new_i][0]['color']

@@ -45,15 +45,11 @@ import matplotlib.pyplot as plt
 from ravens import Dataset, Environment, agents, tasks
 from ravens.dataset_multi import DatasetMulti
 
-data_dir = '/home/xin/Dropbox/RavensTAMP/data_train'
+data_dir = '/home/xin/Dropbox/RavensTAMP/data_train_rebuttal'
 
 task_list = [
-  'stack-tower-mcts',
-  'stack-pyramid-mcts',  
-  'stack-square-mcts',
-  'put-block-base-mcts',
-  'stack-palace-mcts',
-  'stack-t-mcts'
+  'put-multi-mcts',
+  'put-multi-square-mcts'
 ]
 
 h_only = False
@@ -65,7 +61,7 @@ if __name__ == '__main__':
     parser.add_argument('--disp',           action='store_true')
     parser.add_argument('--task',           default='xxx')
     parser.add_argument('--agent',          default='transporter-goal')
-    parser.add_argument('--num_demos',      default='1')
+    parser.add_argument('--num_demos',      default='10')
     parser.add_argument('--num_rots',       default=36, type=int)
     parser.add_argument('--hz',             default=240.0, type=float)
     parser.add_argument('--gpu_mem_limit',  default=None)
@@ -99,7 +95,7 @@ if __name__ == '__main__':
         train_summary_writer = tf.summary.create_file_writer(train_log_dir)
 
         # Set the beginning of the agent name.
-        name = f'GCTN-Multi-{args.agent}-demo{args.num_demos}-seed{random_seed}-third-check-deterministic'
+        name = f'GCTN-Multi-{args.agent}-demo{args.num_demos}-seed{random_seed}-rebuttal-deterministic'
         assert 'transporter-goal' in args.agent
         assert goal_conditioned
         name = f'{name}-rots-{args.num_rots}'
